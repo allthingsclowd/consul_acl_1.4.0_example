@@ -1,0 +1,12 @@
+.terraform
+.vagrant
+*.pfx
+*.pem
+*.csr
+certificate-config/*
+logs/*
+.*
+!.gitignore
+!.github
+main.tf
+
