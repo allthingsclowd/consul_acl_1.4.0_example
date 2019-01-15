@@ -214,7 +214,7 @@ EOF
 
 create_app_token () {
 
-  create_acl_policy "terraform-backend" "Terraform Session Token" "key \\\"dev/app1\\\" { policy = \\\"write\\\" } node \\\"\\\" { policy = \\\"write\\\" } session \\\"\\\" { policy = \\\"write\\\" }"
+  create_acl_policy "terraform-backend" "Terraform Session Token" "node_prefix \\\"\\\" { policy = \\\"write\\\"} service_prefix \\\"\\\" { policy = \\\"write\\\" } key_prefix \\\"dev/app1\\\" { policy = \\\"write\\\" } session_prefix \\\"\\\" { policy = \\\"write\\\" }"
   
   TERRAFORMSESSIONTOKEN=$(curl \
   --request PUT \
@@ -269,14 +269,14 @@ consul_acl_config () {
     step4_create_an_agent_token
     step5_add_agent_token_on_server
     step6_verify_acl_config
+
+    # for terraform provider
+    create_app_token
     
   else
     echo agent
     step7_enable_acl_on_client
     step6_verify_acl_config
-    
-    # for terraform provider
-    create_app_token
     
   fi
   
