@@ -13,7 +13,7 @@ update_key_in_json_file () {
 install_golang () {
     # install go binary
 
-    REQUIRED_GO_VERSION="go1.11.1"
+    REQUIRED_GO_VERSION="go1.11.4"
     CURRENT_GO_VERSION=`go version | cut -d ' ' -f 3`
 
     [ "${REQUIRED_GO_VERSION}" == "${CURRENT_GO_VERSION}" ] &>/dev/null || {

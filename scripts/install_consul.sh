@@ -34,7 +34,7 @@ EOF
 
 source /usr/local/bootstrap/var.env
 
-
+sleep 5
 IFACE=`route -n | awk '$1 == "192.168.2.0" {print $8;exit}'`
 CIDR=`ip addr show ${IFACE} | awk '$2 ~ "192.168.2" {print $2}'`
 IP=${CIDR%%/24}

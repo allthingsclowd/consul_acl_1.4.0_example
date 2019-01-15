@@ -63,7 +63,7 @@ EOF
     echo -e "\n TERRAFORM INIT \n"
     
     rm -rf .terraform/
-    TF_LOG=DEBUG terraform init
+    TF_LOG=INFO terraform init
 
     if [[ ${?} > 0 ]]; then
         echo -e "\nWARNING!!!!! TERRAFORM UNABLE TO INITIALSE \n"
@@ -71,14 +71,14 @@ EOF
     fi
 
     echo -e "\n TERRAFORM PLAN \n"
-    TF_LOG=TRACE terraform plan
+    TF_LOG=INFO terraform plan
     if [[ ${?} > 0 ]]; then
         echo -e "\nWARNING!!!!! TERRAFORM PLAN FAIL \n"
         exit 1
     fi
 
     echo -e "\n TERRAFORM APPLY \n"
-    TF_LOG=TRACE terraform apply --auto-approve
+    TF_LOG=INFO terraform apply --auto-approve
     if [[ ${?} > 0 ]]; then
         echo -e "\nWARNING!!!!! TERRAFORM APPLY FAILURE \n"
         exit 1
