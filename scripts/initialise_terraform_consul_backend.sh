@@ -28,7 +28,7 @@ configure_terraform_consul_backend () {
     [ -f /usr/local/bootstrap/main.tf ] && sudo rm /usr/local/bootstrap/main.tf
     [ -f /usr/local/bootstrap/.terraform ] && sudo rm -rf /usr/local/bootstrap/.terraform
 
-    CONSUL_ACCESS_TOKEN=`cat /usr/local/bootstrap/.terraform_acl`
+    CONSUL_ACCESS_TOKEN=`cat /usr/local/bootstrap/.terraformtoken_acl`
                 
 
     # admin policy hcl definition file

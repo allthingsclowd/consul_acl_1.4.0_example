@@ -40,7 +40,7 @@ Vagrant.configure("2") do |config|
             follower.vm.network "private_network", ip: "192.168.2.#{100+i*10}"
             follower.vm.provision "shell", path: "scripts/install_consul.sh", run: "always"
             follower.vm.provision "shell", path: "scripts/consul_enable_acls_1.4.sh", run: "always"
-            #follower.vm.provision "shell", path: "scripts/initialise_terraform_consul_backend.sh", run: "always"
+            follower.vm.provision "shell", path: "scripts/initialise_terraform_consul_backend.sh", run: "always"
         end
     end
 

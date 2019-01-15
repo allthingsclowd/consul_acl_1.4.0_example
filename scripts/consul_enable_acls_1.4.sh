@@ -30,6 +30,26 @@ setup_environment () {
 
 }
 
+create_acl_policy () {
+
+    echo ${1}
+    echo ${2}
+    echo ${3}
+
+      curl \
+      --request PUT \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+      --data \
+    "{
+      \"Name\": \"${1}\",
+      \"Description\": \"${2}\",
+      \"Rules\": \"${3}\"
+      }" https://127.0.0.1:8321/v1/acl/policy
+}
+
 step1_enable_acls_on_server () {
 
   sudo tee /etc/consul.d/consul_acl_1.4_setup.json <<EOF
@@ -75,20 +95,13 @@ step2_create_bootstrap_token_on_server () {
         
 }
 
-step3_create_an_agent_token_policy () {
+step3_create_an_agent_token_policies () {
     
-    curl \
-      --request PUT \
-      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
-      --data \
-    '{
-      "Name": "agent-policy",
-      "Description": "Agent Token Policy",
-      "Rules": "node_prefix \"\" { policy = \"write\"} service_prefix \"\" { policy = \"read\" } service \"consul\" { policy = \"read\" } key_prefix \"development/\" { policy = \"write\" }"
-      }' https://127.0.0.1:8321/v1/acl/policy
+    create_acl_policy "agent-policy" "Agent Token" "node_prefix \\\"\\\" { policy = \\\"write\\\"} service_prefix \\\"\\\" { policy = \\\"read\\\" }"
+    create_acl_policy "list-all-nodes" "List All Nodes" "node_prefix \\\"\\\" { policy = \\\"read\\\" }"
+    create_acl_policy "ui-access" "Enable UI Access" "key \\\"\\\" { policy = \\\"write\\\"} node \\\"\\\" { policy = \\\"read\\\" } service \\\"\\\" { policy = \\\"read\\\" }"
+    create_acl_policy "consul-service" "Consul Service" "service \\\"consul\\\" { policy = \\\"read\\\" }"
+    create_acl_policy "development-app" "Sample Development Application" "key_prefix \\\"development/\\\" { policy = \\\"write\\\" }"
 }
 
 step4_create_an_agent_token () {
@@ -105,6 +118,18 @@ step4_create_an_agent_token () {
         "Policies": [
             {
               "Name": "agent-policy"
+            },
+            {
+              "Name": "list-all-nodes"
+            },
+            {
+              "Name": "ui-access"
+            },
+            {
+              "Name": "consul-service"
+            },
+            {
+              "Name": "development-app"
             }
         ],
         "Local": false
@@ -187,69 +212,30 @@ EOF
 
 }
 
-step8_create_anonymous_token_policy () {
-    # Allow listing nodes and consul dns service for all nodes - may wish to tighten this for production
-    curl \
-      --request PUT \
-      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
-      --data \
-    '{
-      "Name": "list-nodes-dns-policy",
-      "Description": "Allow all nodes to list nodes and access the consul DNS service",
-      "Rules": "node_prefix \"\" { policy = \"read\"} service \"consul\" { policy = \"read\" }"
-      }' https://127.0.0.1:8321/v1/acl/policy
-}
-
-step9_get_anonymous_token_id () {
-    # Allow listing nodes and consul dns service for all nodes - may wish to tighten this for production
-    AGENTTOKEN=`cat /usr/local/bootstrap/.agenttoken_acl`
-    export CONSUL_HTTP_TOKEN=${AGENTTOKEN}
-
-    curl \
-      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
-     https://127.0.0.1:8321/v1/acl/policies
-}
-
-step10_assign_policy_to_anonymous_token () {
-    # Allow listing nodes and consul dns service for all nodes - may wish to tighten this for production
-    curl \
-      --request PUT \
-      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
-      --data \
-    '{
-      "Name": "list-nodes-dns-policy",
-      "Description": "Allow all nodes to list nodes and access the consul DNS service",
-      "Rules": "node_prefix \"\" { policy = \"read\"} service \"consul\" { policy = \"read\" } key_prefix \"development/\" { policy = \"write\" }"
-      }' https://127.0.0.1:8321/v1/acl/policy
-}
-
 create_app_token () {
 
-  APPTOKEN=$(curl -s \
-    --request PUT \
-    --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-    --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-    --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-    --header "X-Consul-Token: ${MASTERACL}" \
-    --data \
-    "{
-      \"Name\": \"${1}\",
-      \"Type\": \"client\",
-      \"Rules\": \"key \\\"dev/app1\\\" { policy = \\\"write\\\" } node \\\"\\\" { policy = \\\"write\\\" } session \\\"\\\" { policy = \\\"write\\\" }\"
-    }" https://127.0.0.1:8321/v1/acl/create | jq -r .ID)
+  create_acl_policy "terraform-backend" "Terraform Session Token" "key \\\"dev/app1\\\" { policy = \\\"write\\\" } node \\\"\\\" { policy = \\\"write\\\" } session \\\"\\\" { policy = \\\"write\\\" }"
+  
+  TERRAFORMSESSIONTOKEN=$(curl \
+  --request PUT \
+  --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+  --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+  --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+  --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+  --data \
+'{
+    "Description": "Terraform Token",
+    "Policies": [
+        {
+          "Name": "terraform-backend"
+        }
+    ],
+    "Local": false
+  }' https://127.0.0.1:8321/v1/acl/token | jq -r .SecretID)
 
-  echo "The ACL token for ${1} is => ${APPTOKEN}"
-  echo -n ${APPTOKEN} > /usr/local/bootstrap/.${1}_acl
-  sudo chmod ugo+r /usr/local/bootstrap/.${1}_acl
+  echo "The Terraform Session Token received => ${TERRAFORMSESSIONTOKEN}"
+  echo -n ${TERRAFORMSESSIONTOKEN} > /usr/local/bootstrap/.terraformtoken_acl
+  sudo chmod ugo+r /usr/local/bootstrap/.terraformtoken_acl
   
 } 
 
@@ -279,7 +265,7 @@ consul_acl_config () {
     echo server
     step1_enable_acls_on_server
     step2_create_bootstrap_token_on_server
-    step3_create_an_agent_token_policy
+    step3_create_an_agent_token_policies
     step4_create_an_agent_token
     step5_add_agent_token_on_server
     step6_verify_acl_config
@@ -288,17 +274,14 @@ consul_acl_config () {
     echo agent
     step7_enable_acl_on_client
     step6_verify_acl_config
-    #step9_get_anonymous_token_id
-
-    #step1_enable_acls_on_agent
-    #step3_add_agent_acl
+    
     # for terraform provider
-    #step5_create_kv_app_token "terraform" "dev/app1/"
+    create_app_token
     
   fi
   
   if [ "${TRAVIS}" == "true" ]; then
-    step5_create_kv_app_token "terraform" "dev/app1/"
+    create_app_token
   fi
   verify_consul_access
   echo consul started
