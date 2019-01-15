@@ -34,6 +34,7 @@ step1_enable_acls_on_server () {
 
   sudo tee /etc/consul.d/consul_acl_1.4_setup.json <<EOF
   {
+    "primary_datacenter": "allthingscloud1",
     "acl" : {
       "enabled" : true,
       "default_policy" : "deny",
@@ -48,97 +49,190 @@ EOF
 
 step2_create_bootstrap_token_on_server () {
 
-  BOOTSTRAPACL=$(curl -s \
+  curl -s -w "\n%{http_code}" \
         --request PUT \
         --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
         --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
         --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-        https://127.0.0.1:8321/v1/acl/bootstrap | jq -r .SecretID)
+        https://127.0.0.1:8321/v1/acl/bootstrap |  {
+            read body
+            read result
+            if [ "$result" == "200" ]; then
+                BOOTSTRAPACL=`jq -r .SecretID <<< "$body"`
+                echo "The BootStrap ACL received => ${BOOTSTRAPACL}"
+                echo -n ${BOOTSTRAPACL} > /usr/local/bootstrap/.bootstrap_acl
+                sudo chmod ugo+r /usr/local/bootstrap/.bootstrap_acl
+            else
+                echo "The system may already be bootstrapped - return code ${result}"
 
+            fi
 
-  echo "The BootStrap ACL received => ${BOOTSTRAPACL}"
-  echo -n ${BOOTSTRAPACL} > /usr/local/bootstrap/.bootstrap_acl
-  sudo chmod ugo+r /usr/local/bootstrap/.bootstrap_acl
+           }
 
+  BOOTSTRAPACL=`cat /usr/local/bootstrap/.bootstrap_acl`
   export CONSUL_HTTP_TOKEN=${BOOTSTRAPACL}
   echo ${CONSUL_HTTP_TOKEN}
-
+        
 }
 
-step1_enable_acls_on_agent () {
+step3_create_an_agent_token_policy () {
+    
+    curl \
+      --request PUT \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+      --data \
+    '{
+      "Name": "agent-policy",
+      "Description": "Agent Token Policy",
+      "Rules": "node_prefix \"\" { policy = \"write\"} service_prefix \"\" { policy = \"read\" } service \"consul\" { policy = \"read\" } key_prefix \"development/\" { policy = \"write\" }"
+      }' https://127.0.0.1:8321/v1/acl/policy
+}
 
-  sudo tee /etc/consul.d/consul_acl_setup.json <<EOF
+step4_create_an_agent_token () {
+    
+    AGENTTOKEN=$(curl \
+      --request PUT \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+      --data \
+    '{
+        "Description": "Agent Token",
+        "Policies": [
+            {
+              "Name": "agent-policy"
+            }
+        ],
+        "Local": false
+      }' https://127.0.0.1:8321/v1/acl/token | jq -r .SecretID)
+
+      echo "The Agent Token received => ${AGENTTOKEN}"
+      echo -n ${AGENTTOKEN} > /usr/local/bootstrap/.agenttoken_acl
+      sudo chmod ugo+r /usr/local/bootstrap/.agenttoken_acl
+      export AGENTTOKEN
+}
+
+step5_add_agent_token_on_server () {
+
+  sudo tee /etc/consul.d/consul_acl_1.4_setup.json <<EOF
   {
-    "acl_datacenter": "allthingscloud1",
-    "acl_default_policy": "deny",
-    "acl_down_policy": "extend-cache"
+  "primary_datacenter": "allthingscloud1",
+  "acl" : {
+    "enabled" : true,
+    "default_policy" : "deny",
+    "down_policy" : "extend-cache",
+    "tokens" : {
+      "agent" : "${AGENTTOKEN}"
+    }
   }
+}
 EOF
   # read in new configs
   restart_consul
 
 }
 
-step2_create_agent_token () {
-  AGENTACL=$(curl -s \
-        --request PUT \
-        --header "X-Consul-Token: ${MASTERACL}" \
-        --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-        --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-        --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-        --data \
-    '{
-      "Name": "Agent Token",
-      "Type": "client",
-      "Rules": "node \"\" { policy = \"write\" } session \"\" { policy = \"write\" } service \"\" { policy = \"read\" }"
-    }' https://127.0.0.1:8321/v1/acl/create | jq -r .ID)
+step6_verify_acl_config () {
+
+    AGENTTOKEN=`cat /usr/local/bootstrap/.agenttoken_acl`
 
 
-  echo "The agent ACL received => ${AGENTACL}"
-  echo -n ${AGENTACL} > /usr/local/bootstrap/.client_agent_token
-  sudo chmod ugo+r /usr/local/bootstrap/.client_agent_token
+    curl -s -w "\n%{http_code}" \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${AGENTTOKEN}" \
+      https://127.0.0.1:8321/v1/catalog/nodes | {
+            read body
+            read result
+            if [ "$result" == "200" ]; then
+                TAGGEDADDRESSES=`jq -r '.[0].TaggedAddresses' <<< "$body"`
+                if [ "${TAGGEDADDRESSES}" != "" ];then
+                  echo "The ACL system appears to be bootstrapped correctly - Tagged Addresses ${TAGGEDADDRESSES}"
+                else
+                  echo "The ACL system does not appear to be bootstrapped correctly - Tagged Addresses ${TAGGEDADDRESSES}"
+                fi
+            else
+                echo "The ACL system does not appear to be bootstrapped correctly - return code ${result}"
+
+            fi
+
+           }
+
 }
 
-step3_add_agent_acl () {
+step7_enable_acl_on_client () {
 
-  # add the new agent acl token to the consul acl configuration file
-  # add_key_in_json_file /etc/consul.d/consul_acl_setup.json ${AGENTACL}
-  
-  AGENTACL=`cat /usr/local/bootstrap/.client_agent_token`
-  # add the new agent acl token via API
-  curl -s \
-        --request PUT \
-        --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
-        --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
-        --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-        --header "X-Consul-Token: ${MASTERACL}" \
-        --data \
-    "{
-      \"Token\": \"${AGENTACL}\"
-    }" https://127.0.0.1:8321/v1/agent/token/acl_agent_token
+  AGENTTOKEN=`cat /usr/local/bootstrap/.agenttoken_acl`
+  export CONSUL_HTTP_TOKEN=${AGENTTOKEN}
 
-  # lets kill past instance to force reload of new config
+  sudo tee /etc/consul.d/consul_acl_1.4_setup.json <<EOF
+  {
+  "acl" : {
+    "enabled" : true,
+    "default_policy" : "deny",
+    "down_policy" : "extend-cache",
+    "tokens" : {
+      "agent" : "${AGENTTOKEN}"
+    }
+  }
+}
+EOF
+  # read in new configs
   restart_consul
-  
+
 }
 
-step4_enable_anonymous_token () {
-    
-    curl -s \
+step8_create_anonymous_token_policy () {
+    # Allow listing nodes and consul dns service for all nodes - may wish to tighten this for production
+    curl \
       --request PUT \
       --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
       --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
       --cert "/usr/local/bootstrap/certificate-config/client.pem" \
-      --header "X-Consul-Token: ${MASTERACL}" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
       --data \
     '{
-      "ID": "anonymous",
-      "Type": "client",
-      "Rules": "node \"\" { policy = \"read\" } service \"consul\" { policy = \"read\" } key \"_rexec\" { policy = \"write\" }"
-    }' https://127.0.0.1:8321/v1/acl/update
+      "Name": "list-nodes-dns-policy",
+      "Description": "Allow all nodes to list nodes and access the consul DNS service",
+      "Rules": "node_prefix \"\" { policy = \"read\"} service \"consul\" { policy = \"read\" }"
+      }' https://127.0.0.1:8321/v1/acl/policy
 }
 
-step5_create_kv_app_token () {
+step9_get_anonymous_token_id () {
+    # Allow listing nodes and consul dns service for all nodes - may wish to tighten this for production
+    AGENTTOKEN=`cat /usr/local/bootstrap/.agenttoken_acl`
+    export CONSUL_HTTP_TOKEN=${AGENTTOKEN}
+
+    curl \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+     https://127.0.0.1:8321/v1/acl/policies
+}
+
+step10_assign_policy_to_anonymous_token () {
+    # Allow listing nodes and consul dns service for all nodes - may wish to tighten this for production
+    curl \
+      --request PUT \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+      --data \
+    '{
+      "Name": "list-nodes-dns-policy",
+      "Description": "Allow all nodes to list nodes and access the consul DNS service",
+      "Rules": "node_prefix \"\" { policy = \"read\"} service \"consul\" { policy = \"read\" } key_prefix \"development/\" { policy = \"write\" }"
+      }' https://127.0.0.1:8321/v1/acl/policy
+}
+
+create_app_token () {
 
   APPTOKEN=$(curl -s \
     --request PUT \
@@ -185,12 +279,17 @@ consul_acl_config () {
     echo server
     step1_enable_acls_on_server
     step2_create_bootstrap_token_on_server
-    #step2_create_agent_token
-    #step3_add_agent_acl
-    #step4_enable_anonymous_token
+    step3_create_an_agent_token_policy
+    step4_create_an_agent_token
+    step5_add_agent_token_on_server
+    step6_verify_acl_config
     
   else
     echo agent
+    step7_enable_acl_on_client
+    step6_verify_acl_config
+    #step9_get_anonymous_token_id
+
     #step1_enable_acls_on_agent
     #step3_add_agent_acl
     # for terraform provider
@@ -208,6 +307,9 @@ consul_acl_config () {
 verify_consul_access () {
       
       echo 'Testing Consul KV by Uploading some key/values'
+
+      #lets delete old consul storage
+      consul kv delete -recurse development
         # upload vars to consul kv
       while read a b; do
         k=${b%%=*}

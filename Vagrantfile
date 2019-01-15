@@ -30,7 +30,7 @@ Vagrant.configure("2") do |config|
         leader01.vm.hostname = ENV['LEADER_NAME']
         leader01.vm.network "private_network", ip: ENV['LEADER_IP']
         leader01.vm.provision "shell", path: "scripts/install_consul.sh", run: "always"
-        #leader01.vm.provision "shell", path: "scripts/consul_enable_acls.sh", run: "always"
+        leader01.vm.provision "shell", path: "scripts/consul_enable_acls_1.4.sh", run: "always"
         leader01.vm.network "forwarded_port", guest: 8500, host: 8500
     end
 
@@ -39,7 +39,7 @@ Vagrant.configure("2") do |config|
             follower.vm.hostname = "follower0#{i}"
             follower.vm.network "private_network", ip: "192.168.2.#{100+i*10}"
             follower.vm.provision "shell", path: "scripts/install_consul.sh", run: "always"
-            #follower.vm.provision "shell", path: "scripts/consul_enable_acls.sh", run: "always"
+            follower.vm.provision "shell", path: "scripts/consul_enable_acls_1.4.sh", run: "always"
             #follower.vm.provision "shell", path: "scripts/initialise_terraform_consul_backend.sh", run: "always"
         end
     end
