@@ -32,10 +32,6 @@ setup_environment () {
 
 create_acl_policy () {
 
-    echo ${1}
-    echo ${2}
-    echo ${3}
-
       curl \
       --request PUT \
       --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
