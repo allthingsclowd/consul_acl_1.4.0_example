@@ -10,7 +10,7 @@ generate_certificate_config () {
   sudo cp -r /usr/local/bootstrap/certificate-config/consul-ca.pem /etc/pki/tls/certs/consul-ca.pem
   sudo tee /etc/consul.d/consul_cert_setup.json <<EOF
     {
-    "datacenter": "allthingscloud1",
+    "primary_datacenter": "allthingscloud1",
     "data_dir": "/usr/local/consul",
     "log_level": "INFO",
     "server": ${1},
@@ -34,7 +34,7 @@ EOF
 
 source /usr/local/bootstrap/var.env
 
-
+sleep 5
 IFACE=`route -n | awk '$1 == "192.168.2.0" {print $8;exit}'`
 CIDR=`ip addr show ${IFACE} | awk '$2 ~ "192.168.2" {print $2}'`
 IP=${CIDR%%/24}

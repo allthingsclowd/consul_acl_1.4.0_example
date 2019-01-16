@@ -9,4 +9,8 @@ logs/*
 !.gitignore
 !.github
 main.tf
-
+.terraformtoken_acl
+.terraform_acl
+.bootstrap_acl
+.agenttoken_acl
+.client_agent_token
