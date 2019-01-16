@@ -10,7 +10,7 @@ generate_certificate_config () {
   sudo cp -r /usr/local/bootstrap/certificate-config/consul-ca.pem /etc/pki/tls/certs/consul-ca.pem
   sudo tee /etc/consul.d/consul_cert_setup.json <<EOF
     {
-    "primary_datacenter": "allthingscloud1",
+    "datacenter": "allthingscloud1",
     "data_dir": "/usr/local/consul",
     "log_level": "INFO",
     "server": ${1},
