@@ -1,11 +1,22 @@
-# HashiCorp's Consul 1.4.0 ACL Example   [![Build Status](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example.svg?branch=master)](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example)
+# HashiCorp Consul 1.4.0 ACL example includes Consul as a Terraform Backend   [![Build Status](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example.svg?branch=master)](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example)
 
-## [A vagrant/travis example of Consul being used as a backend for Terraform](https://www.terraform.io/docs/backends/types/consul.html)
+This repository implements an example of [BootStrapping HashiCorp Consul 1.4.0 ACL System](https://learn.hashicorp.com/consul/advanced/day-1-operations/acl-guide)
 
-Three VMs are used in the vagrant file, Travis is an all-in-one setup:
- - cert01 : [simply used to illustrate how to create self signed certificates for use in a consul cluster](https://www.consul.io/docs/guides/creating-certificates.html)
- - leader01 : single node Consul "cluster" deployment running in server mode
- - follower01 : Terraform node that has a Consul agent deployed and configured
+Three VMs are used in the vagrant file:
+- cert01 : [simply used to illustrate how to create self signed certificates for use in a consul cluster](https://www.consul.io/docs/guides/creating-certificates.html)
+- leader01 : single node Consul "cluster" deployment running in server mode
+- follower01 : Terraform node that has a Consul agent deployed and configured
+
+ [Travis-CI is used to verify the scripts are working](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example)
+
+ Once the ACL system is bootstrapped correctly, it's verified by using [Consul as the stateful backend for Terraform](https://www.terraform.io/docs/backends/types/consul.html).
+ Terraform uses [Consul's Session Locking feature](https://www.consul.io/docs/internals/sessions.html) to ensure only one user can access at a time.
+
+ Switching debug on in the logs will show the sessions being established:
+ 
+ `Successfully configured the backend "consul"! Terraform will automatically use this backend unless the backend configuration changes.`
+ and
+ `created consul lock session e867920f-5641-1048-7b4c-d3eeb5da4ba5`
 
 ## Deployment
 
@@ -17,10 +28,12 @@ vagrant up
 
 ## Accessing the Consul Web UI when using the self-signed certificates
 
-If you would like to use the webui then before visiting `https://192.168.2.11:8321` it's necessary to import the new root CA and client certificates into your system. I used `KeyChain Access` on the Mac to perform these imports.
+In order to use the webui it's necessary to import the new root CA and client certificates into your system. I used `KeyChain Access` on the Mac to perform these imports.
 
 `consul-ca.pem` is imported into the Systems folder and trusted for all hosts.
 `consul-client.pfx` is imported into the personal login (or system) and again trusted for all hosts. The password used for the pfx keys is `bananas`.
+
+Then you can visit `https://192.168.2.11:8321`
 
 ## Basic set of policies used to setup the ACLs on Consul 1.4.0 
 Ensure to tighten these for a production setup.
