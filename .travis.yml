@@ -1,0 +1,29 @@
+language: go
+sudo: required
+addons:
+  apt:
+    packages:
+    - lynx
+    - jq
+    - wget
+    - grep
+go:
+- '1.10'
+before_script:
+- sudo rsync -az ${TRAVIS_BUILD_DIR}/ /usr/local/bootstrap/
+- bash scripts/generate_certificates.sh
+- bash scripts/install_consul.sh
+- bash scripts/consul_enable_acls_1.4.sh
+script:
+- source ./var.env
+- export LEADER_IP=127.0.0.1
+- bash scripts/initialise_terraform_consul_backend.sh
+deploy:
+  provider: releases
+  api_key:
+    secure: LL9rMUPMxsvmYQ//3+MTSd3UWn455B/oo60ALbGKWolgc7jwkPbQLt7DCqh08ICL/nvHfj6My539rWhv4mkPrAQ54xXbOc3u2scP/Azqm7m/bGQdMDJ4/s3jIUhfX8GrSqL/vA8PeXmCACKqY4cI1euTGKrmdMzN/+9I3y7DUG4EjRtRYYWjLqxbKdO+eW1teu9tcneeIes7KtGE7uIiCKzgkGTmF5EXzjFUUUT2spWFI0xIzmlxTXgCIwjLZDxlBvEnxhk53V31zFpB/xmpKEZJjr+1x+d9D1XwLrkBzoqsMVh7Z48pm7woMWWIrzvMsez4cdh+pZ7VD/BJAxcnYyxyBEMuaGMHTIwj9DY8XR8+8ctI3lky90pZO7UfNFEp1DNl87YDqm/tS9oxngAXyvwBrkzvPSb7mMsp8M2kip4m/hpt09ssaX7y04j5CgyvbPADHoqteRz7KJ+PPrEhgNhN35dDies3+ASFkaH/1gR6u6+p58PzMLnXO5KCfsrf+cUBSP3anJf1T4RnQ1pu5B24YxirT5RgpULSW1t6lUX7TlbiL3nf5M5wdvAr474F3MzSKhneXLLVtdb56pLb5MgV6ZE7Y8ps6HU7a8Vj1+59ZfJsNApq6rXlA8yTOMmyQTV6TvkIlHsjV2oUPrbYoh5OVNI1L+SZOwjKgNfLaCI=
+  file: scripts/consul_enable_acls_1.4.sh
+  on:
+    repo: allthingsclowd/consul_acl_1.4.0_example
+    tags: true
+    
