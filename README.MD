@@ -1,4 +1,4 @@
-# HashiCorp's Consul 1.4.0 ACL Example   [![Build Status](https://travis-ci.org/allthingsclowd/Terraform_Consul_Backend_Configuration.svg?branch=master)](https://travis-ci.org/allthingsclowd/Terraform_Consul_Backend_Configuration)
+# HashiCorp's Consul 1.4.0 ACL Example   [![Build Status](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example.svg?branch=master)](https://travis-ci.org/allthingsclowd/consul_acl_1.4.0_example)
 
 ## [A vagrant/travis example of Consul being used as a backend for Terraform](https://www.terraform.io/docs/backends/types/consul.html)
 
@@ -7,12 +7,11 @@ Three VMs are used in the vagrant file, Travis is an all-in-one setup:
  - leader01 : single node Consul "cluster" deployment running in server mode
  - follower01 : Terraform node that has a Consul agent deployed and configured
 
-
 ## Deployment
 
 ``` bash
-git clone git@github.com:allthingsclowd/Terraform_Consul_Backend_Configuration.git
-cd Terraform_Consul_Backend_Configuration
+git clone git@github.com:allthingsclowd/consul_acl_1.4.0_example.git
+cd consul_acl_1.4.0_example
 vagrant up
 ```
 
@@ -27,6 +26,22 @@ If you would like to use the webui then before visiting `https://192.168.2.11:83
 Ensure to tighten these for a production setup.
 
 ``` bash
+create_acl_policy () {
+
+      curl \
+      --request PUT \
+      --cacert "/usr/local/bootstrap/certificate-config/consul-ca.pem" \
+      --key "/usr/local/bootstrap/certificate-config/client-key.pem" \
+      --cert "/usr/local/bootstrap/certificate-config/client.pem" \
+      --header "X-Consul-Token: ${CONSUL_HTTP_TOKEN}" \
+      --data \
+    "{
+      \"Name\": \"${1}\",
+      \"Description\": \"${2}\",
+      \"Rules\": \"${3}\"
+      }" https://127.0.0.1:8321/v1/acl/policy
+}
+
 step3_create_an_agent_token_policies () {
     
     create_acl_policy "agent-policy" "Agent Token" "node_prefix \\\"\\\" { policy = \\\"write\\\"} service_prefix \\\"\\\" { policy = \\\"read\\\" }"
@@ -142,5 +157,132 @@ EOF
 
 ```
 
+## The output looks like this
+
+``` bash
+    .
+    .
+    .
+    .
+    .
+   follower01:  TERRAFORM INIT
+    follower01: + rm -rf .terraform/
+    follower01: + TF_LOG=INFO
+    follower01: + terraform init
+    follower01: 2019/01/16 19:38:01 [INFO] Terraform version: 0.12.0 alpha4 2c36829d3265661d8edbd5014de8090ea7e2a076
+    follower01: 2019/01/16 19:38:01 [INFO] Go runtime version: go1.11.1
+    follower01: 2019/01/16 19:38:01 [INFO] CLI args: []string{"/usr/local/bin/terraform", "init"}
+    follower01: 2019/01/16 19:38:01 [DEBUG] Attempting to open CLI config file: /root/.terraformrc
+    follower01: 2019/01/16 19:38:01 [DEBUG] File doesn't exist, but doesn't need to. Ignoring.
+    follower01: 2019/01/16 19:38:01 [INFO] CLI command args: []string{"init"}
+    follower01: Initializing the backend...
+    follower01: 2019/01/16 19:38:01 [INFO] Failed to read plugin lock file .terraform/plugins/linux_amd64/lock.json: open .terraform/plugins/linux_amd64/lock.json: no such file or directory
+    follower01:
+    follower01: Successfully configured the backend "consul"! Terraform will automatically
+    follower01: use this backend unless the backend configuration changes.
+    follower01: 2019/01/16 19:38:01 [INFO] Failed to read plugin lock file .terraform/plugins/linux_amd64/lock.json: open .terraform/plugins/linux_amd64/lock.json: no such file or directory
+    follower01: Initializing provider plugins...
+    follower01: The following providers do not have any version constraints in configuration,
+    follower01: so the latest version was installed.
+    follower01: To prevent automatic upgrades to new major versions that may contain breaking
+    follower01: changes, it is recommended to add version = "..." constraints to the
+    follower01: corresponding provider blocks in configuration, with the constraint strings
+    follower01: suggested below.
+    follower01: * provider.null: version = "~> 1.0"
+    follower01: Terraform has been successfully initialized!
+    follower01:
+    follower01: You may now begin working with Terraform. Try running "terraform plan" to see
+    follower01: any changes that are required for your infrastructure. All Terraform commands
+    follower01: should now work.
+    follower01: If you ever set or change modules or backend configuration for Terraform,
+    follower01: rerun this command to reinitialize your working directory. If you forget, other
+    follower01: commands will detect it and remind you to do so if necessary.
+    follower01: + [[ 0 > 0 ]]
+    follower01: + echo -e '\n TERRAFORM PLAN \n'
+    follower01:  TERRAFORM PLAN
+    follower01: + TF_LOG=INFO
+    follower01: + terraform plan
+    follower01: 2019/01/16 19:38:02 [INFO] Terraform version: 0.12.0 alpha4 2c36829d3265661d8edbd5014de8090ea7e2a076
+    follower01: 2019/01/16 19:38:02 [INFO] Go runtime version: go1.11.1
+    follower01: 2019/01/16 19:38:02 [INFO] CLI args: []string{"/usr/local/bin/terraform", "plan"}
+    follower01: 2019/01/16 19:38:02 [DEBUG] Attempting to open CLI config file: /root/.terraformrc
+    follower01: 2019/01/16 19:38:02 [DEBUG] File doesn't exist, but doesn't need to. Ignoring.
+    follower01: 2019/01/16 19:38:02 [INFO] CLI command args: []string{"plan"}
+    follower01: 2019/01/16 19:38:02 [INFO] backend/local: starting Plan operation
+    follower01: 2019/01/16 19:38:02 [INFO] created consul lock session e867920f-5641-1048-7b4c-d3eeb5da4ba5
+    follower01: 2019-01-16T19:38:02.323Z [INFO]  plugin: configuring client automatic mTLS
+    follower01: 2019-01-16T19:38:02.381Z [INFO]  plugin.terraform-provider-null_v1.0.0-5-gf54ff98-dev_x4: configuring server automatic mTLS: timestamp=2019-01-16T19:38:02.365Z
+    follower01: 2019-01-16T19:38:02.611Z [INFO]  plugin.terraform-provider-null_v1.0.0-5-gf54ff98-dev_x4: configuring server automatic mTLS: timestamp=2019-01-16T19:38:02.598Z
+    follower01: 2019-01-16T19:38:02.720Z [ERROR] plugin.terraform: reading plugin stderr: error="read |0: file already closed"
+    follower01: 2019-01-16T19:38:02.720Z [DEBUG] plugin: plugin process exited: path=/usr/local/bin/terraform pid=1343
+    follower01: 2019-01-16T19:38:02.720Z [DEBUG] plugin: plugin exited
+    follower01: 2019/01/16 19:38:02 [TRACE] [walkValidate] Exiting eval tree: provisioner.local-exec (close)
+    follower01: 2019/01/16 19:38:02 [TRACE] vertex "provisioner.local-exec (close)": visit complete
+    follower01: 2019/01/16 19:38:02 [INFO] backend/local: plan calling Refresh
+    follower01: Refreshing Terraform state in-memory prior to plan...
+    follower01: The refreshed state will be used to calculate this plan, but will not be
+    follower01: persisted to local or remote state storage.
+    follower01:
+    follower01: 2019/01/16 19:38:02 [INFO] terraform: building graph: GraphTypeRefresh
+    follower01: ------------------------------------------------------------------------
+    follower01: 2019-01-16T19:38:02.779Z [INFO]  plugin.terraform-provider-null_v1.0.0-5-gf54ff98-dev_x4: configuring server automatic mTLS: timestamp=2019-01-16T19:38:02.778Z
+.
+.
+.
+.
+    follower01: 2019/01/16 19:38:03 [TRACE] [walkPlan] Exiting eval tree: provisioner.local-exec (close)
+    follower01: 2019/01/16 19:38:03 [TRACE] vertex "provisioner.local-exec (close)": visit complete
+    follower01: 2019-01-16T19:38:03.645Z [INFO]  plugin.terraform-provider-null_v1.0.0-5-gf54ff98-dev_x4: configuring server automatic mTLS: timestamp=2019-01-16T19:38:03.645Z
+    follower01: null_resource.Terraform-Consul-Backend-Demo: Creating...
+    follower01: null_resource.Terraform-Consul-Backend-Demo: Provisioning with 'local-exec'...
+    follower01: null_resource.Terraform-Consul-Backend-Demo (local-exec): Executing: ["/bin/sh" "-c" "echo hello Consul"]
+    follower01: null_resource.Terraform-Consul-Backend-Demo (local-exec): hello Consul
+    follower01: null_resource.Terraform-Consul-Backend-Demo: Creation complete after 0s [id=9087727108894708343]
+    follower01:
+    follower01: Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+    follower01: + [[ 0 > 0 ]]
+    follower01: + popd
+    follower01: /home/vagrant
+    follower01: + echo -e '\n RESULTS : Terraform state file in Consul backend =>'
+    follower01:
+    follower01:  RESULTS : Terraform state file in Consul backend =>
+    follower01: + export CONSUL_HTTP_ADDR=https://127.0.0.1:8321
+    follower01: + CONSUL_HTTP_ADDR=https://127.0.0.1:8321
+    follower01: + export CONSUL_CACERT=/usr/local/bootstrap/certificate-config/consul-ca.pem
+    follower01: + CONSUL_CACERT=/usr/local/bootstrap/certificate-config/consul-ca.pem
+    follower01: + export CONSUL_CLIENT_CERT=/usr/local/bootstrap/certificate-config/cli.pem
+    follower01: + CONSUL_CLIENT_CERT=/usr/local/bootstrap/certificate-config/cli.pem
+    follower01: + export CONSUL_CLIENT_KEY=/usr/local/bootstrap/certificate-config/cli-key.pem
+    follower01: + CONSUL_CLIENT_KEY=/usr/local/bootstrap/certificate-config/cli-key.pem
+    follower01: + export CONSUL_HTTP_TOKEN=f0950006-7fa6-3bc2-c205-de16207e3d8c
+    follower01: + CONSUL_HTTP_TOKEN=f0950006-7fa6-3bc2-c205-de16207e3d8c
+    follower01: + consul kv get dev/app1
+    follower01: {
+    follower01:   "version": 4,
+    follower01:   "terraform_version": "0.12.0",
+    follower01:   "serial": 0,
+    follower01:   "lineage": "a3e75291-eb6e-a8f5-1496-d06e55dcc90a",
+    follower01:   "outputs": {},
+    follower01:   "resources": [
+    follower01:     {
+    follower01:       "mode": "managed",
+    follower01:       "type": "null_resource",
+    follower01:       "name": "Terraform-Consul-Backend-Demo",
+    follower01:       "provider": "provider.null",
+    follower01:       "instances": [
+    follower01:         {
+    follower01:           "schema_version": 0,
+    follower01:           "attributes": {
+    follower01:             "id": "9087727108894708343",
+    follower01:             "triggers": null
+    follower01:           }
+    follower01:         }
+    follower01:       ]
+    follower01:     }
+    follower01:   ]
+    follower01: }
+    follower01: + echo -e '\n Finished Terraform Consul Backend Config\n '
+    follower01:  Finished Terraform Consul Backend Config
+```
 
 __Caution__ : Ensure that you don't have a forward slash `/` at the end of the statefile path as this will generate 403 errors when Terraform tries to access the Consul backend.

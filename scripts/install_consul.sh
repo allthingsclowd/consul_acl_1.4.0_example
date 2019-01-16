@@ -63,14 +63,14 @@ sudo killall -1 consul &>/dev/null
     sudo chmod +x consul
     popd
 }
-
+https://releases.hashicorp.com/terraform/0.12.0-alpha4/terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
 # check terraform binary
 [ -f /usr/local/bin/terraform ] &>/dev/null || {
     pushd /usr/local/bin
-    [ -f terraform_0.11.8_linux_amd64.zip ] || {
-        sudo wget -q https://releases.hashicorp.com/terraform/0.11.8/terraform_0.11.8_linux_amd64.zip
+    [ -f terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip ] || {
+        sudo wget -q https://releases.hashicorp.com/terraform/0.12.0-alpha4/terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
     }
-    sudo unzip terraform_0.11.8_linux_amd64.zip
+    sudo unzip terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
     sudo chmod +x terraform
     popd
 }
