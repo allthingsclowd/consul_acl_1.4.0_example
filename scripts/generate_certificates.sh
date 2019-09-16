@@ -39,7 +39,7 @@ install_golang () {
 }
 
 install_cfssl () {
-    go get -u github.com/cloudflare/cfssl/cmd/...
+    sudo apt-get install -y golang-cfssl
     cfssl version
 
 }
