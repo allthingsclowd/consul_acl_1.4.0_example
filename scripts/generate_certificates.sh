@@ -13,7 +13,7 @@ update_key_in_json_file () {
 install_golang () {
     # install go binary
 
-    golang_version=1.4
+    golang_version=1.13
 
     echo "Start Golang installation"
     which /usr/local/go &>/dev/null || {
@@ -50,7 +50,7 @@ install_golang () {
 }
 
 install_cfssl () {
-    go get -u github.com/cloudflare/cfssl/cmd/...
+    sudo apt-get install -y golang-cfssl
     cfssl version
 
 }
