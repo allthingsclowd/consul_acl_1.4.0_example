@@ -2,11 +2,11 @@ Vagrant.configure("2") do |config|
 
     #override global variables to fit Vagrant setup
     ENV['LEADER_NAME']||="leader01"
-    ENV['LEADER_IP']||="192.168.2.11"
+    ENV['LEADER_IP']||="192.168.100.11"
     ENV['FOLLOWER_NAME']||="follower01"
-    ENV['FOLLOWER_IP']||="192.168.2.10"
+    ENV['FOLLOWER_IP']||="192.168.100.10"
     ENV['CERT_NAME']||="certificate"
-    ENV['CERT_IP']||="192.168.2.9"
+    ENV['CERT_IP']||="192.168.100.9"
 
     #global config
     config.vm.synced_folder ".", "/vagrant"

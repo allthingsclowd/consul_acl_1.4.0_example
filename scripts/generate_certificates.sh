@@ -13,21 +13,32 @@ update_key_in_json_file () {
 install_golang () {
     # install go binary
 
-    REQUIRED_GO_VERSION="go1.11.4"
-    CURRENT_GO_VERSION=`go version | cut -d ' ' -f 3`
+    golang_version=1.4
 
-    [ "${REQUIRED_GO_VERSION}" == "${CURRENT_GO_VERSION}" ] &>/dev/null || {
-        go version
-        [ -d /usr/local/go ] && sudo rm -rf /usr/local/go
-        [ -d /usr/local/bin/go ] && sudo rm -rf /usr/local/bin/go
-        go version
-        pushd /usr/local/bin
-        [ -f ${REQUIRED_GO_VERSION}.linux-amd64.tar.gz ] || {
-            sudo wget -q https://dl.google.com/go/${REQUIRED_GO_VERSION}.linux-amd64.tar.gz
+    echo "Start Golang installation"
+    which /usr/local/go &>/dev/null || {
+        echo "Create a temporary directory"
+        sudo mkdir -p /tmp/go_src
+        pushd /tmp/go_src
+        [ -f go${golang_version}.linux-amd64.tar.gz ] || {
+            echo "Download Golang source"
+            sudo wget -qnv https://dl.google.com/go/go${golang_version}.linux-amd64.tar.gz
         }
-        sudo tar -C /usr/local -xzf ${REQUIRED_GO_VERSION}.linux-amd64.tar.gz
+        
+        echo "Extract Golang source"
+        sudo tar -C /usr/local -xzf go${golang_version}.linux-amd64.tar.gz
         popd
+        echo "Remove temporary directory"
+        sudo rm -rf /tmp/go_src
+        echo "Edit profile to include path for Go"
+        echo "export PATH=$PATH:/usr/local/go/bin" | sudo tee -a /etc/profile
+        echo "Ensure others can execute the binaries"
+        sudo chmod -R +x /usr/local/go/bin/
+        cat /etc/profile
+        source /etc/profile
+
         go version
+
     }
 
     [ -d $HOME/go ] || mkdir $HOME/go
@@ -45,7 +56,9 @@ install_cfssl () {
 }
 
 create_required_certificates () {
-    mkdir -p /usr/local/bootstrap/certificate-config
+    [ -d /usr/local/bootstrap/certificate-config ] && rm -rf /usr/local/bootstrap/certificate-config
+    [ -d /usr/local/bootstrap/certificate-config ] || mkdir -p /usr/local/bootstrap/certificate-config
+    
     pushd /usr/local/bootstrap/certificate-config
 
 
@@ -57,12 +70,12 @@ create_required_certificates () {
     # Set algo to RSA and key size 2048
     update_key_in_json_file ca-csr.json ".key.algo" "\"rsa\""
     update_key_in_json_file ca-csr.json ".key.size" 2048
-    update_key_in_json_file ca-csr.json ".CN" "\"allthingscloud.eu\""
-    update_key_in_json_file ca-csr.json ".hosts" "[\"allthingscloud.eu\",\"github.com/allthingsclowd\"]"
+    update_key_in_json_file ca-csr.json ".CN" "\"hashistack.ie\""
+    update_key_in_json_file ca-csr.json ".hosts" "[\"hashistack.ie\",\"allthingscloud.eu\",\"github.com/allthingsclowd\"]"
     update_key_in_json_file ca-csr.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"SY5\",\"L\" : \"Pontesbury\"}]"
 
     # Generate the Certificate Authorities's (CA's) private key and certificate
-    cfssl gencert -initca ca-csr.json | cfssljson -bare consul-ca
+    cfssl gencert -initca ca-csr.json | cfssljson -bare hashistack-ca
 
     # Step 2 - Generate and Sign Node Certificates
     # admin policy hcl definition file
@@ -83,21 +96,21 @@ create_required_certificates () {
 EOF
     
     # Generate a certificate for the Consul server
-    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=consul-ca.pem -ca-key=consul-ca-key.pem -config=cfssl.json \
-    -hostname="server.node.allthingscloud1.consul,localhost,127.0.0.1" - | cfssljson -bare server
+    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
+    -hostname="hashistack.ie,192.168.9.11,192.168.*.*,81.143.215.2,localhost,127.0.0.1" - | cfssljson -bare hashistack-server
 
     # Generate a certificate for the Consul client
-    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=consul-ca.pem -ca-key=consul-ca-key.pem -config=cfssl.json \
-    -hostname="client.node.allthingscloud1.consul,localhost,127.0.0.1" - | cfssljson -bare client
+    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
+    -hostname="hashistack.ie,client.node.allthingscloud1.consul,192.168.*.*,81.143.215.2,localhost,127.0.0.1" - | cfssljson -bare hashistack-client
 
     # Generate a certificate for the CLI
-    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=consul-ca.pem -ca-key=consul-ca-key.pem -profile=client \
-    - | cfssljson -bare cli
+    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -profile=client \
+    - | cfssljson -bare hashistack-cli
 
     # wrap certs as p12 for chrome browser
-    openssl pkcs12 -password pass:bananas -export -out consul-server.pfx -inkey server-key.pem -in server.pem -certfile consul-ca.pem
-    openssl pkcs12 -password pass:bananas -export -out consul-client.pfx -inkey client-key.pem -in client.pem -certfile consul-ca.pem
-    openssl pkcs12 -password pass:bananas -export -out consul-cli.pfx -inkey cli-key.pem -in cli.pem -certfile consul-ca.pem
+    openssl pkcs12 -password pass:bananas -export -out hashistack-server.pfx -inkey hashistack-server-key.pem -in hashistack-server.pem -certfile hashistack-ca.pem
+    openssl pkcs12 -password pass:bananas -export -out hashistack-client.pfx -inkey hashistack-client-key.pem -in hashistack-client.pem -certfile hashistack-ca.pem
+    openssl pkcs12 -password pass:bananas -export -out hashistack-cli.pfx -inkey hashistack-cli-key.pem -in hashistack-cli.pem -certfile hashistack-ca.pem
     
     pwd
     ls -al

@@ -33,7 +33,7 @@ In order to use the webui it's necessary to import the new root CA and client ce
 `consul-ca.pem` is imported into the Systems folder and trusted for all hosts.
 `consul-client.pfx` is imported into the personal login (or system) and again trusted for all hosts. The password used for the pfx keys is `bananas`.
 
-Then you can visit `https://192.168.2.11:8321`
+Then you can visit  `https://192.168.2.11:8321`
 
 ## Basic set of policies used to setup the ACLs on Consul 1.4.0 
 Ensure to tighten these for a production setup.
