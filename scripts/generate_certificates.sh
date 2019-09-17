@@ -55,29 +55,81 @@ install_cfssl () {
 
 }
 
+create_default_templates () {
+    # Reset the directory contents - let's hope you've saved your keys!!!
+    DATE=`date +"%T"`
+    [ -d /usr/local/bootstrap/certificate-config ] && mv /usr/local/bootstrap/certificate-config /tmp/certificate-config${DATE}
+    mkdir -p /usr/local/bootstrap/certificate-config
+    
+    cd /usr/local/bootstrap/certificate-config
+    # Generate a default Certificate Signing Request (CSR)
+    #cfssl print-defaults config > ca-config.json
+    create_new_ca-config
+    cfssl print-defaults csr > ca-csr.json
+}
+
+create_new_ca-config () {
+    
+    tee ca-config.json <<EOF
+{
+    "signing": {
+        "default": {
+            "expiry": "43800h"
+        },
+        "profiles": {
+            "server": {
+                "expiry": "43800h",
+                "usages": [
+                    "signing",
+                    "key encipherment",
+                    "server auth"
+                ]
+            },
+            "client": {
+                "expiry": "43800h",
+                "usages": [
+                    "signing",
+                    "key encipherment",
+                    "client auth"
+                ]
+            },
+            "peer": {
+                "expiry": "43800h",
+                "usages": [
+                    "signing",
+                    "key encipherment",
+                    "server auth",
+                    "client auth"
+                ]
+            }
+        }
+    }
+}
+EOF
+
+}
+
 create_required_certificates () {
-    [ -d /usr/local/bootstrap/certificate-config ] && rm -rf /usr/local/bootstrap/certificate-config
-    [ -d /usr/local/bootstrap/certificate-config ] || mkdir -p /usr/local/bootstrap/certificate-config
     
     pushd /usr/local/bootstrap/certificate-config
 
 
     # Step 1 - Create a Certificate Authority
     #########################################
-    # Generate a default Certificate Signing Request (CSR)
-    cfssl print-defaults csr > ca-csr.json
 
+    # Customise the CSR
     # Set algo to RSA and key size 2048
     update_key_in_json_file ca-csr.json ".key.algo" "\"rsa\""
     update_key_in_json_file ca-csr.json ".key.size" 2048
     update_key_in_json_file ca-csr.json ".CN" "\"hashistack.ie\""
-    update_key_in_json_file ca-csr.json ".hosts" "[\"hashistack.ie\",\"allthingscloud.eu\",\"github.com/allthingsclowd\"]"
-    update_key_in_json_file ca-csr.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"SY5\",\"L\" : \"Pontesbury\"}]"
+    update_key_in_json_file ca-csr.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
     # Generate the Certificate Authorities's (CA's) private key and certificate
-    cfssl gencert -initca ca-csr.json | cfssljson -bare hashistack-ca
+    cfssl gencert -initca ca-csr.json | cfssljson -bare hashistack_ca -
 
-    # Step 2 - Generate and Sign Node Certificates
+    # This should generate hashistack_ca-key, hashistack_ca.csr, hashistack_ca.pem
+
+    # Step 2 - Generate Server Certificates
     # admin policy hcl definition file
     tee cfssl.json <<EOF
     {
