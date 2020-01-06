@@ -16,7 +16,7 @@ install_golang () {
     golang_version=1.13
 
     echo "Start Golang installation"
-    which /usr/local/go &>/dev/null || {
+    which /usr/local/go/bin/go &>/dev/null || {
         echo "Create a temporary directory"
         sudo mkdir -p /tmp/go_src
         pushd /tmp/go_src
@@ -70,7 +70,7 @@ create_default_templates () {
 
 create_new_ca-config () {
     
-    tee ca-config.json <<EOF
+    tee /usr/local/bootstrap/certificate-config/ca-config.json <<EOF
 {
     "signing": {
         "default": {
@@ -110,6 +110,8 @@ EOF
 }
 
 create_required_certificates () {
+
+    create_default_templates
     
     pushd /usr/local/bootstrap/certificate-config
 
@@ -122,47 +124,83 @@ create_required_certificates () {
     update_key_in_json_file ca-csr.json ".key.algo" "\"rsa\""
     update_key_in_json_file ca-csr.json ".key.size" 2048
     update_key_in_json_file ca-csr.json ".CN" "\"hashistack.ie\""
+    #update_key_in_json_file ca-csr.json ".hosts" "[\"allthingscloud.eu\",\"github.com/allthingsclowd\"]"
     update_key_in_json_file ca-csr.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
     # Generate the Certificate Authorities's (CA's) private key and certificate
-    cfssl gencert -initca ca-csr.json | cfssljson -bare hashistack_ca -
+    cfssl gencert -initca ca-csr.json | cfssljson -bare hashistack-ca -
 
     # This should generate hashistack_ca-key, hashistack_ca.csr, hashistack_ca.pem
 
-    # Step 2 - Generate Server Certificates
-    # admin policy hcl definition file
-    tee cfssl.json <<EOF
-    {
-    "signing": {
-        "default": {
-            "expiry": "87600h",
-            "usages": [
-                "signing",
-                "key encipherment",
-                "server auth",
-                "client auth"
-                ]
-            }
-        }
-    }
-EOF
+#     # Step 2 - Generate Server Certificate
+    cfssl print-defaults csr > server.json
     
-    # Generate a certificate for the Consul server
-    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
-    -hostname="hashistack.ie,192.168.9.11,192.168.*.*,81.143.215.2,localhost,127.0.0.1" - | cfssljson -bare hashistack-server
+    update_key_in_json_file server.json ".key.algo" "\"rsa\""
+    update_key_in_json_file server.json ".key.size" 2048
+    update_key_in_json_file server.json ".CN" "\"leader01\""
+    update_key_in_json_file server.json ".hosts" "[\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"]"
+    update_key_in_json_file server.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
-    # Generate a certificate for the Consul client
-    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
-    -hostname="hashistack.ie,client.node.allthingscloud1.consul,192.168.*.*,81.143.215.2,localhost,127.0.0.1" - | cfssljson -bare hashistack-client
+    cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=ca-config.json -profile=server server.json | cfssljson -bare hashistack-server
 
-    # Generate a certificate for the CLI
-    echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -profile=client \
-    - | cfssljson -bare hashistack-cli
+#     # Step 3 - Generate Peer Certificate
+    cfssl print-defaults csr > peer.json
+    
+    update_key_in_json_file peer.json ".key.algo" "\"rsa\""
+    update_key_in_json_file peer.json ".key.size" 2048
+    update_key_in_json_file peer.json ".CN" "\"leader01\""
+    update_key_in_json_file peer.json ".hosts" "[\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"]"
+    update_key_in_json_file peer.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
-    # wrap certs as p12 for chrome browser
-    openssl pkcs12 -password pass:bananas -export -out hashistack-server.pfx -inkey hashistack-server-key.pem -in hashistack-server.pem -certfile hashistack-ca.pem
-    openssl pkcs12 -password pass:bananas -export -out hashistack-client.pfx -inkey hashistack-client-key.pem -in hashistack-client.pem -certfile hashistack-ca.pem
-    openssl pkcs12 -password pass:bananas -export -out hashistack-cli.pfx -inkey hashistack-cli-key.pem -in hashistack-cli.pem -certfile hashistack-ca.pem
+    cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=ca-config.json -profile=peer peer.json | cfssljson -bare hashistack-peer
+
+#     # Step 4 - Generate Client Certificate
+    cfssl print-defaults csr > client.json
+    
+    update_key_in_json_file client.json ".key.algo" "\"rsa\""
+    update_key_in_json_file client.json ".key.size" 2048
+    update_key_in_json_file client.json ".CN" "\"client\""
+    update_key_in_json_file client.json ".hosts" "[\"\"]"
+    update_key_in_json_file client.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
+
+    cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=ca-config.json -profile=client client.json | cfssljson -bare hashistack-client
+
+
+
+
+#     # admin policy hcl definition file
+#     tee cfssl.json <<EOF
+#     {
+#     "signing": {
+#         "default": {
+#             "expiry": "87600h",
+#             "usages": [
+#                 "signing",
+#                 "key encipherment",
+#                 "server auth",
+#                 "client auth"
+#                 ]
+#             }
+#         }
+#     }
+# EOF
+    
+#     # Generate a certificate for the Consul server
+#     echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
+#     -hostname="hashistack.ie,192.168.9.11,192.168.*.*,81.143.215.2,localhost,127.0.0.1" - | cfssljson -bare hashistack-server
+
+#     # Generate a certificate for the Consul client
+#     echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
+#     -hostname="hashistack.ie,client.node.allthingscloud1.consul,192.168.*.*,81.143.215.2,localhost,127.0.0.1" - | cfssljson -bare hashistack-client
+
+#     # Generate a certificate for the CLI
+#     echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -profile=client \
+#     - | cfssljson -bare hashistack-cli
+
+#     # wrap certs as p12 for chrome browser
+#     openssl pkcs12 -password pass:bananas -export -out hashistack-server.pfx -inkey hashistack-server-key.pem -in hashistack-server.pem -certfile hashistack-ca.pem
+#     openssl pkcs12 -password pass:bananas -export -out hashistack-client.pfx -inkey hashistack-client-key.pem -in hashistack-client.pem -certfile hashistack-ca.pem
+#     openssl pkcs12 -password pass:bananas -export -out hashistack-cli.pfx -inkey hashistack-cli-key.pem -in hashistack-cli.pem -certfile hashistack-ca.pem
     
     pwd
     ls -al
