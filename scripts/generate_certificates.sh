@@ -109,10 +109,8 @@ EOF
 
 }
 
-create_required_certificates () {
-    # ${1} - product (e.g. "consul")
-    # ${2} - hostname (e.g. "\"leader01\"" )
-    # ${3} - hosts (e.g. "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" )
+create_certificate_authority () {
+    # ${1} - CA Name (e.g. "hashistack")
     
     create_default_templates ${1}
     
@@ -130,9 +128,16 @@ create_required_certificates () {
     update_key_in_json_file ca-csr.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
     # Generate the Certificate Authorities's (CA's) private key and certificate
-    cfssl gencert -initca ${1}-ca-csr.json | cfssljson -bare ${1}-hashistack-ca -
+    cfssl gencert -initca ${1}-ca-csr.json | cfssljson -bare ${1}-ca -
 
-    # This should generate hashistack_ca-key, hashistack_ca.csr, hashistack_ca.pem
+    # This should generate ${1}_ca-key, ${1}_ca.csr, ${1}_ca.pem    
+}
+
+create_required_certificates () {
+    # ${1} - product (e.g. "consul")
+    # ${2} - hostname (e.g. "\"leader01\"" )
+    # ${3} - hosts (e.g. "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.4.11\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" )
+    # ${4} - CA name
 
 #     # Step 2 - Generate Server Certificate
     cfssl print-defaults csr > ${1}-server.json
@@ -143,18 +148,18 @@ create_required_certificates () {
     update_key_in_json_file ${1}-server.json ".hosts" "[${3}]"
     update_key_in_json_file ${1}-server.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
-    cfssl gencert -ca=${1}-hashistack-ca.pem -ca-key=${1}-hashistack-ca-key.pem -config=${1}-ca-config.json -profile=server ${1}-server.json | cfssljson -bare ${1}-hashistack-server
+    cfssl gencert -ca=${4}-ca.pem -ca-key=${4}-ca-key.pem -config=${4}-ca-config.json -profile=server ${1}-server.json | cfssljson -bare ${1}-server
 
 #     # Step 3 - Generate Peer Certificate
-    cfssl print-defaults csr > ${1}-peer.json
+    # cfssl print-defaults csr > ${1}-peer.json
     
-    update_key_in_json_file ${1}-peer.json ".key.algo" "\"rsa\""
-    update_key_in_json_file ${1}-peer.json ".key.size" 4096
-    update_key_in_json_file ${1}-peer.json ".CN" "\"server\"" # changed from hostname
-    update_key_in_json_file ${1}-peer.json ".hosts" "[${3}]"
-    update_key_in_json_file ${1}-peer.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
+    # update_key_in_json_file ${1}-peer.json ".key.algo" "\"rsa\""
+    # update_key_in_json_file ${1}-peer.json ".key.size" 4096
+    # update_key_in_json_file ${1}-peer.json ".CN" "\"server\"" # changed from hostname
+    # update_key_in_json_file ${1}-peer.json ".hosts" "[${3}]"
+    # update_key_in_json_file ${1}-peer.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
-    cfssl gencert -ca=${1}-hashistack-ca.pem -ca-key=${1}-hashistack-ca-key.pem -config=${1}-ca-config.json -profile=peer ${1}-peer.json | cfssljson -bare ${1}-hashistack-peer
+    # cfssl gencert -ca=${4}-ca.pem -ca-key=${4}-ca-key.pem -config=${4}-ca-config.json -profile=peer ${1}-peer.json | cfssljson -bare ${1}-peer
 
 #     # Step 4 - Generate Client Certificate
     cfssl print-defaults csr > ${1}-client.json
@@ -165,7 +170,7 @@ create_required_certificates () {
     update_key_in_json_file ${1}-client.json ".hosts" "[\"\"]"
     update_key_in_json_file ${1}-client.json ".names" "[{\"C\" : \"UK\",\"ST\" : \"Shropshire\",\"L\" : \"Pontesbury\"}]"
 
-    cfssl gencert -ca=${1}-hashistack-ca.pem -ca-key=${1}-hashistack-ca-key.pem -config=${1}-ca-config.json -profile=client ${1}-client.json | cfssljson -bare ${1}-hashistack-client
+    cfssl gencert -ca=${4}-ca.pem -ca-key=${4}-ca-key.pem -config=${4}-ca-config.json -profile=client ${1}-client.json | cfssljson -bare ${1}-client
    
 #     # Generate a certificate for the Consul server
 #     echo '{"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=hashistack-ca.pem -ca-key=hashistack-ca-key.pem -config=cfssl.json \
@@ -180,9 +185,9 @@ create_required_certificates () {
 #     - | cfssljson -bare hashistack-cli
 
     # wrap certs as p12 for chrome browser
-    openssl pkcs12 -password pass:bananas -export -out ${1}-hashistack-server.pfx -inkey ${1}-hashistack-server-key.pem -in ${1}-hashistack-server.pem -certfile ${1}-hashistack-ca.pem
-    openssl pkcs12 -password pass:bananas -export -out ${1}-hashistack-client.pfx -inkey ${1}-hashistack-client-key.pem -in ${1}-hashistack-client.pem -certfile ${1}-hashistack-ca.pem
-    openssl pkcs12 -password pass:bananas -export -out ${1}-hashistack-peer.pfx -inkey ${1}-hashistack-peer-key.pem -in ${1}-hashistack-peer.pem -certfile ${1}-hashistack-ca.pem
+    openssl pkcs12 -password pass:bananas -export -out ${1}-server.pfx -inkey ${1}-server-key.pem -in ${1}-server.pem -certfile ${4}-ca.pem
+    openssl pkcs12 -password pass:bananas -export -out ${1}-client.pfx -inkey ${1}-client-key.pem -in ${1}-client.pem -certfile ${4}-ca.pem
+    # openssl pkcs12 -password pass:bananas -export -out ${1}-peer.pfx -inkey ${1}-peer-key.pem -in ${1}-peer.pem -certfile ${4}-ca.pem
     
     pwd
     ls -al
@@ -192,6 +197,7 @@ create_required_certificates () {
 
 install_golang
 install_cfssl
-create_required_certificates "consul" "\"leader01\"" "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" 
-create_required_certificates "vault" "\"leader01\"" "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\""
-create_required_certificates "nomad" "\"leader01\"" "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" 
+create_certificate_authority "hashistack"
+create_required_certificates "consul" "\"leader01\"" "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" "hashistack"
+create_required_certificates "vault" "\"leader01\"" "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" "hashistack"
+create_required_certificates "nomad" "\"leader01\"" "\"leader01.allthingscloud.eu\",\"127.0.0.1\",\"192.168.6.11\",\"192.168.9.11\",\"81.143.215.2\",\"leader01\",\"hashistack.ie\"" "hashistack"
